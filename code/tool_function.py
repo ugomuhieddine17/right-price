@@ -9,10 +9,11 @@ import geopandas as gpd
 
 
 
-def mutation_process(mutations, niveau_centre_path='../data/niveau_centre.xlsx'):
+def mutation_process(mutations):
     """
     mutation localized preprocessing
     """
+    print('hi!')
 
     mutations = mutations[['idmutation', 'idmutinvar', 'idopendata',
        'idnatmut', 'codservch', 'refdoc', 'datemut',
@@ -25,7 +26,7 @@ def mutation_process(mutations, niveau_centre_path='../data/niveau_centre.xlsx')
        'sbatapt', 'sbatact', 'sapt1pp', 'sapt2pp', 'sapt3pp', 'sapt4pp',
        'sapt5pp', 'smai1pp', 'smai2pp', 'smai3pp', 'smai4pp', 'smai5pp',
        'codtypbien', 'libtypbien', 'department_code', 'first_idpar',
-       'geometry', 'id', 'centroid', 'month', 'year', 'day', 'nivcentr']].copy()
+       'geometry']].copy()
 
     #### Geo dataframe
     mutations = gpd.GeoDataFrame(mutations, geometry=mutations.geometry)
@@ -38,11 +39,15 @@ def mutation_process(mutations, niveau_centre_path='../data/niveau_centre.xlsx')
     mutations['month'] = mutations.datemut.dt.month
     mutations['year'] = mutations.datemut.dt.year
     mutations['day'] = mutations.datemut.dt.day
-    #### niveau center data
-    niveau_center = pd.read_excel(niveau_centre_path, header=4)
-    mutations = pd.merge(mutations, niveau_center[['codgeo', 'nivcentr']], how='left', left_on='l_codinsee', right_on='codgeo', right_index=False)
-    del mutations['codgeo']
-    #we consider that if no center level then 0
-    mutations.nivcentr = mutations.nivcentr.fillna(0)
-
+    
     return mutations
+
+def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/niveau_centre.xlsx'): 
+   #### niveau center data
+   niveau_center = pd.read_excel(niveau_centre_path, header=4)
+   mutations = pd.merge(mutations, niveau_center[['codgeo', 'nivcentr']], how='left', left_on='l_codinsee', right_on='codgeo', right_index=False)
+   del mutations['codgeo']
+   #we consider that if no center level then 0
+   mutations.nivcentr = mutations.nivcentr.fillna(0)
+
+   return mutations
