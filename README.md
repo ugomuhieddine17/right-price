@@ -30,3 +30,6 @@ We want only new built buildings : should we remove all the 'Adjudication',
        'Vente terrain à bâtir', 'Echange', 'Expropriation' ?
 
 How to manage mutations having houses, apartments etc? HOW TO KEEP ONLY APARTMENTS?
+
+
+Write the soources of the external data
