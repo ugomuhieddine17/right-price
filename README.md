@@ -19,10 +19,8 @@ données cadastrales:
 - GOOD??? https://cerema.app.box.com/v/dvfplus-opendata/folder/178403559385
 
 
-# QUESTION 
 
-
-## Questions 
+# Questions 
 difference between l_idpar et l_idparmut ?
 Un exemple de donnée d'entrée ?
 How to seperate houses and apartments?
@@ -30,4 +28,5 @@ Why some mutations values less than 1000€ ?
 
 We want only new built buildings : should we remove all the 'Adjudication',
        'Vente terrain à bâtir', 'Echange', 'Expropriation' ?
-    
+
+How to manage mutations having houses, apartments etc? HOW TO KEEP ONLY APARTMENTS?
