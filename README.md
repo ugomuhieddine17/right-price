@@ -31,5 +31,15 @@ We want only new built buildings : should we remove all the 'Adjudication',
 
 How to manage mutations having houses, apartments etc? HOW TO KEEP ONLY APARTMENTS?
 
+There is some mutations with a surface of 0, how to manage this?
 
-Write the soources of the external data
+Write the sources of the external data
+
+What is the time line of the test set?
+
+
+# 1st try: assumptions
+
+for the training:
+- Vefa = True (T: 9%, F: 91%)
+- the 4 types of appartments ()
