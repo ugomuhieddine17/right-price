@@ -17,6 +17,7 @@ données cadastrales:
 - THE ORIGINAL : http://doc-datafoncier.cerema.fr/dv3f/doc/variable/mutation/sapt3pp
 - http://doc-datafoncier.cerema.fr/dv3f/doc/variable/mutation/geomparmut
 - GOOD??? https://cerema.app.box.com/v/dvfplus-opendata/folder/178403559385
+- https://www.rateinflation.com/inflation-rate/france-historical-inflation-rate/
 
 
 

@@ -51,3 +51,15 @@ def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/ni
    mutations.nivcentr = mutations.nivcentr.fillna(0)
 
    return mutations
+
+
+def inflation_rate_connexion(mutations, path):
+    def get_inflation_rate(date_, df):
+        year = date_.year
+        month = date_.strftime('%b')
+
+        return df[df['Year'] == year].iloc[0, :][month]
+
+    inflation_df = pd.read_excel(path)
+    mutations['inflation_rate'] = mutations['datemut'].apply(lambda x: get_inflation_rate(x, inflation_df))
+    return mutations
