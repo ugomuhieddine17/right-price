@@ -29,6 +29,26 @@ def mutation_process(mutations):
     
     return mutations
 
+def mutation_test_process(df):
+    """
+    mutation localized preprocessing
+    """
+    print('hi!')
+
+    #### centroids
+    # mutations['centroid'] = mutations.geometry.centroid
+    #### postcode 
+    df['first_idpar'] = df.l_idpar.apply(lambda x: eval(x)[0])
+    df['l_codinsee'] = df.first_idpar.str[:5]
+    #### date data
+    df.datemut = pd.to_datetime(df.datemut)
+    df['month'] = df.datemut.dt.month
+    df['year'] = df.datemut.dt.year
+    df['day'] = df.datemut.dt.day
+    
+    return df
+
+
 def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/niveau_centre.xlsx'): 
    #### niveau center data
    mutations = mutations.reset_index()
@@ -41,8 +61,7 @@ def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/ni
    mutations['nivcentr'] = mutations['nivcentr'].fillna(pd.merge(mutations[['coddep']], niv_group, on='coddep').nivcentr)
 
    del mutations['codgeo']
-   #we consider that if no center level then 0
-   # mutations.nivcentr = mutations.nivcentr.fillna(2)
+
 
    return mutations
 
@@ -86,3 +105,24 @@ def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'):
     mutations.drop(columns=['commune', 'years', 'department'], inplace=True)
     
     return mutations
+
+
+
+def salary_connexion(mutations, salary_path='../data_to_connect/_Salaire net horaire moyen by Commune.xlsx'):
+    mut = mutations.copy()
+    salaire = pd.read_excel(salary_path)
+    salaire = salaire.drop(columns=['Unnamed: 0', 'LIBGEO'])
+    salaire = salaire.melt('CODGEO', var_name='years', value_name='salary')
+    salaire.years = '20'+ salaire.years.str[-2:]
+    salaire.years = salaire.years.astype('int')
+
+    test = pd.merge(mut.astype({'anneemut':int, 'l_codinsee':str}), salaire.astype({'years':int, 'CODGEO':str}), how='left', left_on=['anneemut', 'l_codinsee'], right_on=['years', 'CODGEO'])
+
+    salaire['coddep'] = salaire.CODGEO.str[:2]
+    sal_group = salaire.groupby('coddep').agg({'salary':np.nanmedian}).reset_index()   
+    test['salary'] = test['salary'].fillna(pd.merge(test[['coddep']], sal_group, on='coddep').salary)
+
+    del test['CODGEO']
+    del test['years']
+
+    return test 
