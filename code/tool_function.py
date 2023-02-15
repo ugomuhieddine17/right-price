@@ -15,19 +15,6 @@ def mutation_process(mutations):
     """
     print('hi!')
 
-    mutations = mutations[['idmutation', 'idmutinvar', 'idopendata',
-       'idnatmut', 'codservch', 'refdoc', 'datemut',
-       'coddep', 'libnatmut', 'vefa', 'valeurfonc', 'nbdispo', 'nblot',
-       'nbcomm', 'l_codinsee', 'nbsection', 'l_section', 'nbpar', 'l_idpar',
-       'nbparmut', 'l_idparmut', 'nbsuf', 'sterr', 'nbvolmut', 'nblocmut',
-       'l_idlocmut', 'nblocmai', 'nblocapt', 'nblocdep', 'nblocact',
-       'nbapt1pp', 'nbapt2pp', 'nbapt3pp', 'nbapt4pp', 'nbapt5pp', 'nbmai1pp',
-       'nbmai2pp', 'nbmai3pp', 'nbmai4pp', 'nbmai5pp', 'sbati', 'sbatmai',
-       'sbatapt', 'sbatact', 'sapt1pp', 'sapt2pp', 'sapt3pp', 'sapt4pp',
-       'sapt5pp', 'smai1pp', 'smai2pp', 'smai3pp', 'smai4pp', 'smai5pp',
-       'codtypbien', 'libtypbien', 'department_code', 'first_idpar',
-       'geometry']].copy()
-
     #### Geo dataframe
     mutations = gpd.GeoDataFrame(mutations, geometry=mutations.geometry)
     #### centroids
@@ -44,11 +31,18 @@ def mutation_process(mutations):
 
 def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/niveau_centre.xlsx'): 
    #### niveau center data
+   mutations = mutations.reset_index()
    niveau_center = pd.read_excel(niveau_centre_path, header=4)
+   mutations.coddep = mutations.coddep.astype('float').astype('int').astype('str')
    mutations = pd.merge(mutations, niveau_center[['codgeo', 'nivcentr']], how='left', left_on='l_codinsee', right_on='codgeo', right_index=False)
+   
+   niveau_center['coddep'] = niveau_center.codgeo.str[:2]
+   niv_group = niveau_center.groupby('coddep').agg({'nivcentr':np.nanmedian}).reset_index()   
+   mutations['nivcentr'] = mutations['nivcentr'].fillna(pd.merge(mutations[['coddep']], niv_group, on='coddep').nivcentr)
+
    del mutations['codgeo']
    #we consider that if no center level then 0
-   mutations.nivcentr = mutations.nivcentr.fillna(0)
+   # mutations.nivcentr = mutations.nivcentr.fillna(2)
 
    return mutations
 
