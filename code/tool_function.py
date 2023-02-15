@@ -45,3 +45,44 @@ def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/ni
    # mutations.nivcentr = mutations.nivcentr.fillna(2)
 
    return mutations
+
+def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'): 
+    #all dep that are considered
+    dep = [75, 77, 78, 91, 92, 93, 94, 95]
+    for d in dep: 
+        for year in range(2017, 2013, -1):
+            file_path = pop_path + 'dep' + str(d) + '-' + str(year) + '.xls'
+            locals()[f'dep{d}_{year}'] = pd.read_excel(file_path, sheet_name='Communes' , index_col=None, usecols = "C:J", header = 7)
+
+        for year in range(2020, 2017, -1):
+            file_path = pop_path + 'dep' + str(d) + '-' + str(year) + '.xlsx'
+            locals()[f'dep{d}_{year}'] = pd.read_excel(file_path, sheet_name=2 , index_col=None, usecols = "C:J", header = 7)
+    #loop thru all dep and year to extract all commune pop
+    for d in dep: 
+        globals()[f'dep{d}_pop_dict'] = {}
+        for year in range(2014, 2021):
+            dep_year = globals()[f'dep{d}_{year}']
+            dep_year_pop = {'commune': dep_year['Code département'].astype(str) + dep_year['Code commune'].apply(lambda x: f"{x:03d}").astype(str), 'population': dep_year['Population totale']}
+            dep_year_pop = pd.DataFrame(dep_year_pop)
+            globals()[f'dep{d}_pop_dict'][f'dep{d}_{year}_pop'] = dep_year_pop
+
+    dep_commune_population = {**dep75_pop_dict, **dep77_pop_dict, **dep78_pop_dict, **dep91_pop_dict, **dep92_pop_dict, **dep93_pop_dict, **dep94_pop_dict, **dep95_pop_dict}
+    
+    dfs = []
+    #loop thru population dictionary
+    for key in dep_commune_population.keys():
+        dept_num, year = key.split("_")[0][3:], key.split("_")[1]
+        df = dep_commune_population[key]
+        df['department'] = dept_num
+        df['year'] = year
+        dfs.append(df)
+    population_by_year_commune = pd.concat(dfs, ignore_index=True)
+    
+    #reorder columns as commune, year, population
+    population_by_year_commune = population_by_year_commune[['department','commune', 'year', 'population']]
+    population_by_year_commune = population_by_year_commune.astype({'department':int,'commune':int, 'year':int})
+
+    mutations = pd.merge(mutations.astype({'anneemut':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "anneemut"], right_on=["commune", "year"], how="left")
+    mutations.drop(columns=['commune', 'year', 'department'], inplace=True)
+    
+    return mutations
