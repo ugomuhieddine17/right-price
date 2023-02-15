@@ -61,7 +61,7 @@ def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'):
     for d in dep: 
         globals()[f'dep{d}_pop_dict'] = {}
         for year in range(2014, 2021):
-            dep_year = globals()[f'dep{d}_{year}']
+            dep_year = locals()[f'dep{d}_{year}']
             dep_year_pop = {'commune': dep_year['Code département'].astype(str) + dep_year['Code commune'].apply(lambda x: f"{x:03d}").astype(str), 'population': dep_year['Population totale']}
             dep_year_pop = pd.DataFrame(dep_year_pop)
             globals()[f'dep{d}_pop_dict'][f'dep{d}_{year}_pop'] = dep_year_pop
@@ -74,15 +74,15 @@ def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'):
         dept_num, year = key.split("_")[0][3:], key.split("_")[1]
         df = dep_commune_population[key]
         df['department'] = dept_num
-        df['year'] = year
+        df['years'] = year
         dfs.append(df)
     population_by_year_commune = pd.concat(dfs, ignore_index=True)
     
     #reorder columns as commune, year, population
-    population_by_year_commune = population_by_year_commune[['department','commune', 'year', 'population']]
-    population_by_year_commune = population_by_year_commune.astype({'department':int,'commune':int, 'year':int})
+    population_by_year_commune = population_by_year_commune[['department','commune', 'years', 'population']]
+    population_by_year_commune = population_by_year_commune.astype({'department':int,'commune':int, 'years':int})
 
-    mutations = pd.merge(mutations.astype({'anneemut':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "anneemut"], right_on=["commune", "year"], how="left")
-    mutations.drop(columns=['commune', 'year', 'department'], inplace=True)
+    mutations = pd.merge(mutations.astype({'anneemut':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "anneemut"], right_on=["commune", "years"], how="left")
+    mutations.drop(columns=['commune', 'years', 'department'], inplace=True)
     
     return mutations
