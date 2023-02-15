@@ -33,3 +33,4 @@ How to manage mutations having houses, apartments etc? HOW TO KEEP ONLY APARTMEN
 
 
 Write the soources of the external data
+- Population by year and commune: https://www.insee.fr/fr/statistiques (popuations legales)
