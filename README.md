@@ -31,7 +31,7 @@ We want only new built buildings : should we remove all the 'Adjudication',
 
 How to manage mutations having houses, apartments etc? HOW TO KEEP ONLY APARTMENTS?
 
-There is some mutations with a surface of 0, how to manage this?
+There is some mutations with a surface of 0, how to manage this? 17% -> fill with the median of the given commune
 
 Write the sources of the external data
 
