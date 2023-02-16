@@ -4,30 +4,64 @@ import numpy as np
 import datetime as dt
 import json
 import geopandas as gpd
-
-
-
+from scipy.spatial import cKDTree
+from shapely.geometry import Point, LineString
+from shapely.geometry import Point
+import seaborn as sns
+import matplotlib.pyplot as plt
+import datetime as dt
+import json
+import os
+import re
 
 
 def mutation_process(mutations):
     """
     mutation localized preprocessing
     """
-    print('hi!')
+    print(f"\nOriginal shape mutation process {mutations.shape}")
+
+    # to_int
+    s_app = [f"sapt{i}pp" for i in range(1, 6)]
+    s_maison = [f"smai{i}pp" for i in range(1, 6)]
+    to_int = ["idmutation", "anneemut", "moismut", "coddep", "nblot", "nbpar", "nbparmut", 
+              "nbsuf", "sterr", "nbvolmut", "nblocmut", "nblocapt", "nblocdep", "nblocact", 
+              "sbati", "sbatact"] + s_app + s_maison   # to int since metres squared
+    for col in to_int:
+      mutations[col] = mutations[col].astype(int)
+
+    # datetime
+    mutations.datemut = pd.to_datetime(mutations.datemut)
+    mutations.rename(columns={"anneemut": "year", "moismut": "month"}, inplace=True)
+    mutations["day"] = mutations.datemut.dt.day
+
+    # drop
+    n_app = [f"nbapt{i}pp" for i in range(1, 6)]
+    n_maison = [f"nbmai{i}pp" for i in range(1, 6)]
+    others = ["Unnamed: 0.1",  "Unnamed: 0", "idmutinvar",
+              "idopendata", "idnatmut", "codservch", "refdoc",
+              "nbdispo", "nbcomm", "nbsection", "l_section", 
+              "l_idpar", "l_idparmut", "l_idlocmut", "department_code", "codtypbien", "id"]   #'first_idpar' to erase? 
+   
+    to_drop = n_app + n_maison + others
+    mutations.drop(columns=to_drop, axis=1, inplace=True)
+
+    #### Postcode 
+    mutations['l_codinsee'] = mutations.first_idpar.str[:5]
+
+    # Dropping missing geometry
+    mutations.dropna(axis=0, subset=["geometry", "valeurfonc"], inplace=True)
 
     #### Geo dataframe
     mutations = gpd.GeoDataFrame(mutations, geometry=mutations.geometry)
     #### centroids
     mutations['centroid'] = mutations.geometry.centroid
-    #### postcode 
-    mutations['l_codinsee'] = mutations.first_idpar.str[:5]
-    #### date data
-    mutations.datemut = pd.to_datetime(mutations.datemut)
-    mutations['month'] = mutations.datemut.dt.month
-    mutations['year'] = mutations.datemut.dt.year
-    mutations['day'] = mutations.datemut.dt.day
+    mutations['area'] = mutations.geometry.area    
+    print(f"Final shape mutation process {mutations.shape}\n")
     
     return mutations
+
+
 
 def mutation_test_process(df):
     """
@@ -46,7 +80,52 @@ def mutation_test_process(df):
     df['year'] = df.datemut.dt.year
     df['day'] = df.datemut.dt.day
     
+    
     return df
+
+
+def adjustment_bati(mutations, thresh_sbati=9, thresh_valeur=5000):
+
+  # Creation smoymai, smoyapt, smoyact and adjustment sbati
+
+  original_shape = mutations.shape
+  print(f"Shape before adjustment of bati: {original_shape}")
+
+  df_surf = mutations[~((mutations.sbati ==0) & (mutations[['nblocmai', 'nblocapt', 'nblocact']].sum(axis=1) == 0))].copy()
+  print(f"Shape DFSURF before adjustment of bati: {df_surf.shape}")
+
+  for (moy, col, nbloc) in zip(['smoymai', 'smoyapt', 'smoyact'], ["sbatmai", "sbatapt", "sbatact"], ['nblocmai', 'nblocapt', 'nblocact']):
+    df_surf[moy] = np.where(df_surf[nbloc]!=0, df_surf[col]/df_surf[nbloc], 0)
+
+  df_surf = df_surf.reset_index(drop=True)
+  for (col, moy, nbloc) in zip(["sbatmai", "sbatapt", "sbatact"], ['smoymai', 'smoyapt', 'smoyact'], ['nblocmai', 'nblocapt', 'nblocact']):
+    df_surf.loc[df_surf["sbati"]==0, col] = df_surf.groupby('l_codinsee')[moy].transform(np.nanmedian) * df_surf[nbloc]
+  df_surf.loc[df_surf["sbati"]==0, "sbati"] = df_surf[['sbatmai', 'sbatapt', 'sbatact']].sum(axis=1)
+
+  df_surf = df_surf.reset_index(drop=True)
+  for (col, moy, nbloc) in zip(["sbatmai", "sbatapt", "sbatact"], ['smoymai', 'smoyapt', 'smoyact'], ['nblocmai', 'nblocapt', 'nblocact']):
+    df_surf.loc[df_surf["sbati"]==0, col] = df_surf.groupby('l_codinsee')[moy].transform(np.nanmedian) * df_surf[nbloc]
+  df_surf.loc[df_surf["sbati"]==0, 'sbati'] = df_surf[['sbatmai', 'sbatapt', 'sbatact']].sum(axis=1)
+
+  for (moy, col, nbloc) in zip(['smoymai', 'smoyapt', 'smoyact'], ["sbatmai", "sbatapt", "sbatact"], ['nblocmai', 'nblocapt', 'nblocact']):
+    df_surf[moy] = np.where(df_surf[nbloc]!=0, df_surf[col]/df_surf[nbloc], 0)
+
+  # Filtering out 0 apartments
+  mutations = df_surf[~(df_surf["nblocapt"]==0)].copy()
+
+  # Filtering out small apartments and sensitive prices
+  mutations = mutations[(mutations.sbati > thresh_sbati) & (mutations.valeurfonc>thresh_valeur)].copy()
+
+  # We only want appartements
+  # wanted_libtypbien = ["UN APPARTEMENT", "APPARTEMENT INDETERMINE", "DEUX APPARTEMENTS", 
+                        # "BATI - INDETERMINE : Vefa sans descriptif", "BATI - INDETERMINE : Vente avec volume(s)"]  
+  # mutations = mutations[mutations.libtypbien.isin(wanted_libtypbien)].copy()
+  # print(f"\nUnique libtypes: {mutations['libtypbien'].unique()}\n")
+
+  final_shape = mutations.shape
+  print(f"\nShape after adjustment of bati: {final_shape}, that is {final_shape[0]/original_shape[0]: .2%} of original observations\n")
+  return mutations
+
 
 
 def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/niveau_centre.xlsx'): 
@@ -61,9 +140,9 @@ def niveau_center_connexion(mutations, niveau_centre_path='../data_to_connect/ni
    mutations['nivcentr'] = mutations['nivcentr'].fillna(pd.merge(mutations[['coddep']], niv_group, on='coddep').nivcentr)
 
    del mutations['codgeo']
-
-
    return mutations
+
+
 
 def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'): 
     #all dep that are considered
@@ -107,6 +186,20 @@ def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'):
     return mutations
 
 
+def density_commune(mutations, pop_path='../data_to_connect/'): 
+  name_file = "insee_rp_hist.xlsx"
+  file_path = os.path.join(pop_path, name_file)
+
+  df = pd.read_excel(file_path, sheet_name='Data' , index_col=None, usecols = "A:D", header = 4)
+  df = df.astype({'codgeo': str, 'an':int})
+  df["dep"] = df["codgeo"].str[:2]
+
+  df_fin = df[df["an"]==2019].copy()
+  res = pd.merge(mutations.astype({'l_codinsee': str}), df_fin[["codgeo", "dens_pop"]], left_on=["l_codinsee"], right_on=["codgeo"], how="left")
+  res.drop(columns="codgeo", inplace=True)
+  return res
+
+
 
 def salary_connexion(mutations, salary_path='../data_to_connect/_Salaire net horaire moyen by Commune.xlsx'):
     mut = mutations.copy()
@@ -126,3 +219,34 @@ def salary_connexion(mutations, salary_path='../data_to_connect/_Salaire net hor
     del test['years']
 
     return test 
+
+
+
+def get_distances(mutations, path='../data_to_connect/', near=1, distance=1, radius=0.08):
+  ''' distance is manhattan (p parameter). distance computed on near while numbers of stations in neighborhoood depends on radius '''
+
+  mutations.set_geometry('centroid', inplace=True)
+  file_path = os.path.join(path, 'emplacement-des-gares-idf.geojson')
+  trains = gpd.read_file(file_path)
+  avail_columns = trains.columns.tolist()
+
+  ls_neigh = np.concatenate([np.array(geom.coords) for geom in trains.geometry.to_list()])
+  candidates = np.concatenate([np.array(geom.coords) for geom in mutations.geometry.to_list()])
+
+  ckd_tree = cKDTree(ls_neigh)
+  dist, idx = ckd_tree.query(candidates, k=near, p=distance)  # Manhattan distance
+
+  type_name = avail_columns.index("mode")
+  mutations["near_distance"] = dist.astype(float)
+  mutations["near_type"] = trains.iloc[idx.tolist(),  type_name].astype(str).tolist()
+  
+  nbs = ckd_tree.query_ball_point(candidates, r=radius, p=distance, return_length=True)  # return_length returns the number of points inside the radius instead of a list of the indices
+  mutations["near_number"] = nbs.astype(int).tolist()
+
+  return mutations
+  
+  
+  
+
+
+
