@@ -244,9 +244,14 @@ def get_distances(mutations, path='../data_to_connect/', near=1, distance=1, rad
   mutations["near_number"] = nbs.astype(int).tolist()
 
   return mutations
-  
-  
-  
 
+def inflation_rate_connexion(mutations, path='../data_to_connect/inflation_rate.xlsx'):
+    def get_inflation_rate(date_, df):
+        year = date_.year
+        month = date_.strftime('%b')
 
+        return df[df['Year'] == year].iloc[0, :][month]
 
+    inflation_df = pd.read_excel(path)
+    mutations['inflation_rate'] = mutations['datemut'].apply(lambda x: get_inflation_rate(x, inflation_df))
+    return mutations
