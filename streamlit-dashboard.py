@@ -7,6 +7,11 @@ import json
 import requests
 from geopy.geocoders import Nominatim
 geolocator = Nominatim(user_agent="right-price")
+from tool_function import *
+
+
+# Load the model
+model = None
 
 #get the following variables: 
     #enter_date: yyyyy/nn/dd
@@ -107,6 +112,80 @@ def get_insee_code(latitude, longitude):
             return properties['citycode']
     return None
 enter_codinsee = int(get_insee_code(lat_pred, long_pred))
+st.text_input(str(enter_codinsee))
+
+FIXED_FEATURES = {
+    'libnatmut': "UN APPARTEMENT",
+    'vefa': True,
+    'nblot': 2,
+    'nbpar': 1,
+    'nbparmut': 1,
+    'nbsuf': 1,
+    'sterr': 0,
+    'nbvolmut': 0,
+    'nblocmut': 2,
+    'nblocmai': 0,
+    'nblocdep': 0,
+    'nblocact': 0,
+    'sbatmai': 0,
+    'sbatact': 0,
+    'smai1pp': 0,
+    'smai2pp': 0,
+    'smai3pp': 0,
+    'smai4pp': 0,
+    'smai5pp': 0,
+    'nblocapt': 0,
+    'libtypbien': "UN APPARTEMENT",
+    'sapt1pp': 0,
+    'sapt2pp': 0,
+    'sapt3pp': 0,
+    'sapt4pp': 0,
+    'sapt5pp': 0
+}
+
+def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_features = FIXED_FEATURES):
+    features = fixed_features
+    features['year'] = input_date.year
+    features['month'] = input_date.month
+    features['day'] = input_date.day
+    features['sbatapt'] = float(sbatapt)
+
+    tmp = f'sapt{str(num_room)}pp'
+    features[tmp] = sbatapt
+
+    features['longitude'] = float(long)
+    features['latitude'] = float(lat)
+
+    features['sbati'] = float(sbatapt)
+    features['sbati'] = float(sbatapt)
+
+    code_insee = str(get_insee_code(lat_pred, long_pred))
+    features['coddep'] = code_insee[:2]
+    features['l_codinsee'] = code_insee
+
+    input_df = pd.Dataframe(data=features, index=[0])
+    
+    # nivcentr
+    input_df = niveau_center_connexion(input_df)
+    # population
+    input_df = inflation_month(input_df, dir='..')
+    # dens_pop
+    input_df = density_commune(input_df)
+    
+    # ‘near_distance’, ‘near_type’, ‘near_number’
+    input_df = get_distances(input_df, dir='..', near=1, distance=1, radius=0.009)
+
+    # Need clarification:
+    input_df['inflation'] = 0.02
+    input_df['salary'] = 13.258
+
+    return input_df
+
+def predict(input_df):
+    prediction = model.predict(input_df)
+    return prediction
+
+# tmp = 
 
 # for debugging purpose
 
