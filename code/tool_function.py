@@ -187,7 +187,6 @@ def pop_commune_year(mutations):
     #reorder columns as commune, year, population
     population_by_year_commune = population_by_year_commune[['department','commune', 'years', 'population']]
     population_by_year_commune = population_by_year_commune.astype({'department':int,'commune':int, 'years':int})
-
     mutations = pd.merge(mutations.astype({'year':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "year"], right_on=["commune", "years"], how="left")
     mutations.drop(columns=['commune', 'years', 'department'], inplace=True)
     
