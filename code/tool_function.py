@@ -180,7 +180,7 @@ def pop_commune_year(mutations, pop_path='../data_to_connect/dep-com-pop/'):
     population_by_year_commune = population_by_year_commune[['department','commune', 'years', 'population']]
     population_by_year_commune = population_by_year_commune.astype({'department':int,'commune':int, 'years':int})
 
-    mutations = pd.merge(mutations.astype({'anneemut':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "anneemut"], right_on=["commune", "years"], how="left")
+    mutations = pd.merge(mutations.astype({'year':int, 'l_codinsee':int}), population_by_year_commune, left_on=["l_codinsee", "year"], right_on=["commune", "years"], how="left")
     mutations.drop(columns=['commune', 'years', 'department'], inplace=True)
     
     return mutations
@@ -209,7 +209,7 @@ def salary_connexion(mutations, salary_path='../data_to_connect/_Salaire net hor
     salaire.years = '20'+ salaire.years.str[-2:]
     salaire.years = salaire.years.astype('int')
 
-    test = pd.merge(mut.astype({'anneemut':int, 'l_codinsee':str}), salaire.astype({'years':int, 'CODGEO':str}), how='left', left_on=['anneemut', 'l_codinsee'], right_on=['years', 'CODGEO'])
+    test = pd.merge(mut.astype({'year':int, 'l_codinsee':str}), salaire.astype({'years':int, 'CODGEO':str}), how='left', left_on=['year', 'l_codinsee'], right_on=['years', 'CODGEO'])
 
     salaire['coddep'] = salaire.CODGEO.str[:2]
     sal_group = salaire.groupby('coddep').agg({'salary':np.nanmedian}).reset_index()   
