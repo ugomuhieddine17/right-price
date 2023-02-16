@@ -9,11 +9,62 @@ from geopy.geocoders import Nominatim
 geolocator = Nominatim(user_agent="right-price")
 from modules.tool_function import *
 import xgboost as xgb
-
+from pickle import load
 
 # Load the model
 model = xgb.XGBRegressor()
 model.load_model('trained_xgb_model.json')
+
+ct = load(open('scaler_X.pkl', 'rb'))
+# load the scaler
+scalery = load(open('scaler_Y.pkl', 'rb'))
+
+feats = ['year',
+ 'month',
+ 'coddep',
+ 'libnatmut',
+ 'vefa',
+ 'nblot',
+ 'l_codinsee',
+ 'nbpar',
+ 'nbparmut',
+ 'nbsuf',
+ 'sterr',
+ 'nbvolmut',
+ 'nblocmut',
+ 'nblocmai',
+ 'nblocapt',
+ 'nblocdep',
+ 'nblocact',
+ 'sbati',
+ 'sbatmai',
+ 'sbatapt',
+ 'sbatact',
+ 'sapt1pp',
+ 'sapt2pp',
+ 'sapt3pp',
+ 'sapt4pp',
+ 'sapt5pp',
+ 'smai1pp',
+ 'smai2pp',
+ 'smai3pp',
+ 'smai4pp',
+ 'smai5pp',
+ 'libtypbien',
+ 'day',
+ 'smoyapt',
+ 'nivcentr',
+ 'population',
+ 'dens_pop',
+ 'salary',
+ 'inflation',
+ 'near_distance',
+ 'near_type',
+ 'near_number',
+ 'latitude',
+ 'longitude']
+
+
 
 #get the following variables: 
     #enter_date: yyyyy/nn/dd
@@ -21,6 +72,9 @@ model.load_model('trained_xgb_model.json')
     #enter_num_rooms
 header = st.container()
 dashboard = st.container()
+
+#Caching the model for faster loading
+
 
 with header: 
     st.title('The Right Price')
@@ -115,9 +169,14 @@ def get_insee_code(latitude, longitude):
     return None
 enter_codinsee = int(get_insee_code(lat_pred, long_pred))
 
+import time
+
+
+# st.success('Done!')
+
 FIXED_FEATURES = {
     'libnatmut': "UN APPARTEMENT",
-    'vefa': True,
+    'vefa': 1,
     'nblot': 2,
     'nbpar': 1,
     'nbparmut': 1,
@@ -144,9 +203,13 @@ FIXED_FEATURES = {
     'sapt5pp': 0
 }
 
-import time
+features_3 = [
+       'smoyapt'
+]
 
 
+
+@st.cache_data(show_spinner=False)
 def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_features = FIXED_FEATURES):
     features = fixed_features
     features['year'] = input_date.year
@@ -161,16 +224,18 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
     features['latitude'] = float(lat)
 
     features['sbati'] = float(sbatapt)
-    features['sbati'] = float(sbatapt)
 
     code_insee = str(get_insee_code(lat_pred, long_pred))
-    features['coddep'] = code_insee[:2]
+    features['coddep'] = int(code_insee[:2])
     features['l_codinsee'] = code_insee
 
     input_df = pd.DataFrame(data=features, index=[0])
 
     # To remove
     input_df['datemut'] = datetime.datetime(year=2019, month=5, day=5)
+
+    input_df['smoyapt'] = input_df.sbatapt
+    
 
     start_time = time.time()
     
@@ -179,8 +244,10 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
     print(f'niv center: {len(input_df)}')
 
     # population
-    input_df['inflation'] = get_inflation_rate(input_date)
-    print(f'pop: {len(input_df)}')
+    input_df = pop_commune_year(input_df)
+
+    # Inflation
+    # input_df['inflation'] = get_inflation_rate(input_date)
 
     # dens_pop
     input_df['dens_pop'] = get_dens_commune(code_insee, input_date.year)
@@ -190,7 +257,7 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
       input_df, geometry=gpd.points_from_xy(input_df.longitude, input_df.latitude))  
     input_df['centroid'] = input_df.geometry
 
-    print(input_df)
+    
     
     # ‘near_distance’, ‘near_type’, ‘near_number’
     input_df = get_distances(input_df, dir='..', near=1, distance=1, radius=0.009)
@@ -202,31 +269,42 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
     input_df['inflation'] = 0.02
     input_df['salary'] = 13.258
 
-    cols_to_remove = ['datemut', 'geometry', 'centroid']
+    cols_to_remove = ['datemut', 'geometry', 'centroid', 'index']
     input_df.drop(cols_to_remove, axis=1, inplace=True)
+
+    input_df['coddep'] = input_df['coddep'].astype(int)
+
+    print(input_df.dtypes)
+
+    print(input_df[feats])
 
     return input_df
 
-def predict(input_df):
-    prediction = model.predict(input_df)
-    return prediction
+def predict(input_df, feats):
+    # prediction = model.predict(input_df)
+    pred = model.predict(ct.transform(input_df[feats]))
+    inv_pred = scalery.inverse_transform([pred]).ravel()
+    inv_pred = [elt  if elt > 0 else 5000 for elt in inv_pred]
+    return inv_pred[0]
 
+    
 if st.button('Predict Price'):
-    input_date = enter_date
-    sbatapt = float(enter_surface_apt)
-    num_room = int(enter_num_rooms)
-    long = location_area.longitude
-    lat = location_area.latitude
+    with st.spinner('In progress...'):
+        input_date = enter_date
+        sbatapt = float(enter_surface_apt)
+        num_room = int(enter_num_rooms)
+        long = location_area.longitude
+        lat = location_area.latitude
 
-    start_time = time.time()
-    input_df = format_input_format_model(
-        input_date, 
-        sbatapt=sbatapt, num_room=num_room, 
-        long=long, lat=lat, 
-        fixed_features = FIXED_FEATURES)
-    prediction = predict(input_df)
-    stop_time = time.time()
-    print(f'time: {stop_time - start_time}')
+        start_time = time.time()
+        input_df = format_input_format_model(
+            input_date, 
+            sbatapt=sbatapt, num_room=num_room, 
+            long=long, lat=lat, 
+            fixed_features = FIXED_FEATURES)
+        prediction = predict(input_df, feats)
+        stop_time = time.time()
+        print(f'time: {stop_time - start_time}')
 
     st.success(f'The predicted value for your appartment is : {prediction} EUR')
 
