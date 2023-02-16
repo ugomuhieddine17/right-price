@@ -24,7 +24,7 @@ def mutation_process(mutations):
     # to_int
     s_app = [f"sapt{i}pp" for i in range(1, 6)]
     s_maison = [f"smai{i}pp" for i in range(1, 6)]
-    to_int = ["idmutation", "anneemut", "moismut", "coddep", "nblot", "nbpar", "nbparmut", 
+    to_int = ["idmutation", "anneemut", "moismut", "nblot", "nbpar", "nbparmut", 
               "nbsuf", "sterr", "nbvolmut", "nblocmut", "nblocapt", "nblocdep", "nblocact", 
               "sbati", "sbatact"] + s_app + s_maison   # to int since metres squared
     for col in to_int:
@@ -56,34 +56,56 @@ def mutation_process(mutations):
     mutations = gpd.GeoDataFrame(mutations, geometry=mutations.geometry)
     #### centroids
     mutations['centroid'] = mutations.geometry.centroid
-    mutations['area'] = mutations.geometry.area    
+    mutations['latitude'] = mutations.centroid.x
+    mutations['longitude'] = mutations.centroid.y
+
+    # mutations['area'] = mutations.geometry.area    
     print(f"Final shape mutation process {mutations.shape}\n")
     
     return mutations
 
 
 
-
-def mutation_test_process(df):
+def mutation_test_process(mutations):
     """
     mutation localized preprocessing
     """
-    print('hi!')
+    # to_int
+    s_app = [f"sapt{i}pp" for i in range(1, 6)]
+    s_maison = [f"smai{i}pp" for i in range(1, 6)]
+    to_int = ["idmutation", "anneemut", "moismut", "nblot", "nbpar", "nbparmut", 
+              "nbsuf", "sterr", "nbvolmut", "nblocmut", "nblocapt", "nblocdep", "nblocact", 
+              "sbati", "sbatact"] + s_app + s_maison   # to int since metres squared
+    for col in to_int:
+      mutations[col] = mutations[col].astype(int)
 
-    #### centroids
-    # mutations['centroid'] = mutations.geometry.centroid
-    #### postcode 
-    df['first_idpar'] = df.l_idpar.apply(lambda x: eval(x)[0])
-    df['l_codinsee'] = df.first_idpar.str[:5]
-    #### date data
-    df.datemut = pd.to_datetime(df.datemut)
-    df['month'] = df.datemut.dt.month
-    df['year'] = df.datemut.dt.year
-    df['day'] = df.datemut.dt.day
-    
-    
-    return df
+    # datetime
+    mutations.datemut = pd.to_datetime(mutations.datemut)
+    mutations.rename(columns={"anneemut": "year", "moismut": "month"}, inplace=True)
+    mutations["day"] = mutations.datemut.dt.day
 
+    #### Postcode
+    mutations['first_idpar'] = mutations.l_idpar.apply(lambda x: eval(x)[0])
+    mutations['l_codinsee'] = mutations.first_idpar.str[:5]
+
+    mutations['smoyapt'] = mutations.sbatapt/mutations.nblocapt
+    
+    # drop
+    n_app = [f"nbapt{i}pp" for i in range(1, 6)]
+    n_maison = [f"nbmai{i}pp" for i in range(1, 6)]
+    others = [ "Unnamed: 0", "idmutinvar",
+              "idopendata", "idnatmut", "codservch", "refdoc",
+              "nbdispo", "nbcomm", "nbsection", "l_section", 
+              "l_idpar", "l_idparmut", "l_idlocmut",  "codtypbien"]   #'first_idpar' to erase? 
+   
+    to_drop = n_app + n_maison + others
+    mutations.drop(columns=to_drop, axis=1, inplace=True)
+
+    mutations = gpd.GeoDataFrame(
+    mutations, geometry=gpd.points_from_xy(mutations.longitude, mutations.latitude))  
+    mutations['centroid'] = mutations.geometry
+    
+    return mutations
 
 
 def adjustment_bati(mutations, thresh_sbati=9, thresh_valeur=5000):
@@ -114,8 +136,12 @@ def adjustment_bati(mutations, thresh_sbati=9, thresh_valeur=5000):
   mutations = df_surf[~(df_surf["nblocapt"]==0)].copy()
 
   # Filtering out small apartments and sensitive prices
-  mutations = mutations[(mutations.sbati > thresh_sbati) & (mutations.valeurfonc>thresh_valeur)].copy()
+  # mutations = mutations[(mutations.smoyapt > thresh_sbati) & (mutations.valeurfonc>thresh_valeur)].copy()
 
+  mutations = mutations[(mutations.smoyapt > thresh_sbati) 
+                        & (mutations.valeurfonc>thresh_valeur)
+                        & ~(mutations.valeurfonc.isna())
+                        & (mutations.valeurfonc<1000000)].copy()
   # We only want appartements
   # wanted_libtypbien = ["UN APPARTEMENT", "APPARTEMENT INDETERMINE", "DEUX APPARTEMENTS", 
                         # "BATI - INDETERMINE : Vefa sans descriptif", "BATI - INDETERMINE : Vente avec volume(s)"]  
@@ -237,10 +263,10 @@ def salary_connexion(mutations):
     return test 
   
   
-def inflation_month(mutations):
+def inflation_month(mutations, dir="drive/MyDrive/Hackathon"):
 
-    dir = "drive/MyDrive/Hackathon"
-    #dir = ".."
+    #dir = "drive/MyDrive/Hackathon"
+    dir = ".."
     path = os.path.join(dir, "data_to_connect")
     file_path = os.path.join(path, 'inflation_rate.xlsx')
 
@@ -255,11 +281,9 @@ def inflation_month(mutations):
 
 
 
-def get_distances(mutations, near=1, distance=1, radius=0.08):
+def get_distances(mutations, dir="drive/MyDrive/Hackathon", near=1, distance=1, radius=0.08):
   ''' distance is manhattan (p parameter). distance computed on near while numbers of stations in neighborhoood depends on radius '''
 
-  dir = "drive/MyDrive/Hackathon"
-  #dir = ".."
   path = os.path.join(dir, "data_to_connect")
   file_path = os.path.join(path, 'emplacement-des-gares-idf.geojson')
   trains = gpd.read_file(file_path)
