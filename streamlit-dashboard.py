@@ -321,7 +321,7 @@ if st.button('Predict Price'):
         stop_time = time.time()
         print(f'time: {stop_time - start_time}')
 
-    st.success(f'The predicted value for your appartment is : {round(prediction):,} EUR'.replace(',', ' '))
+    st.success(f'The predicted value for your appartment is : {round(prediction):,} EUR')
 
 # for debugging purpose
 # 49.0452, 2.1614
