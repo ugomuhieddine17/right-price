@@ -225,7 +225,7 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
 
     features['sbati'] = float(sbatapt)
 
-    code_insee = str(get_insee_code(lat_pred, long_pred))
+    code_insee = str(get_insee_code(lat, long)) #modified
     features['coddep'] = int(code_insee[:2])
     features['l_codinsee'] = code_insee
 
@@ -250,7 +250,7 @@ def format_input_format_model(input_date, sbatapt, num_room, long, lat, fixed_fe
     # input_df['inflation'] = get_inflation_rate(input_date)
 
     # dens_pop
-    input_df['dens_pop'] = get_dens_commune(code_insee, input_date.year)
+    input_df = density_commune(input_df)
     print(f'dens: {len(input_df)}')
 
     input_df = gpd.GeoDataFrame(
@@ -306,7 +306,7 @@ if st.button('Predict Price'):
         stop_time = time.time()
         print(f'time: {stop_time - start_time}')
 
-    st.success(f'The predicted value for your appartment is : {prediction} EUR')
+    st.success(f'The predicted value for your appartment is : {round(prediction, 2)} EUR')
 
 # for debugging purpose
 # 49.0452, 2.1614
@@ -325,6 +325,5 @@ if st.button('Predict Price'):
 # lat_pred is a format of float
 # long_pred is a format of float
 # enter_codinsee is a format of int
-
 
 
