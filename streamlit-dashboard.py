@@ -87,31 +87,37 @@ with dashboard:
     #general information
     #adjustable features to further inout to the model
     enter_date = st.date_input('Date of entering the market: ', datetime.date(2019, 7, 6))
-    enter_surface_apt = st.slider('The size (sq meters) of the apartment', min_value = 10, max_value = 155, value = 36, step = 1)
+    enter_surface_apt = st.number_input('The size (sq meters) of the apartment', min_value=0.1, value=36.9)
+    # enter_surface_apt = st.slider('The size (sq meters) of the apartment', min_value = 10, max_value = 155, value = 36, step = 1)
     enter_num_rooms = st.slider('The number of rooms in the apartment', min_value = 1, max_value = 5, value = 2, step = 1)
     #create 2 columns
     select_col, select2_col = st.columns(2)
 
     #here is more for user interface stuff. zoom in and out on diff regions and get coordinates
     #SEARCH by address/area
+    address = None
     select_col.markdown('**Search by address/area**')
     area = select_col.text_input('The area/address that you are looking into', '75 Rue de Monceau')
     location_area = geolocator.geocode(area)
-    select_col.text('The full address is: ')
-    select_col.write(location_area.address)
-    select_col.text('The coordinates are: ')
-    select_col.write((location_area.latitude, location_area.longitude))
+    # select_col.text('The full address is: ')
+    # select_col.write(location_area.address)
+    address = location_area.address
+    coords = (location_area.latitude, location_area.longitude)
+    # select_col.text('The coordinates are: ')
+    # select_col.write((location_area.latitude, location_area.longitude))
 
     #SEARCH by clicking on the map
     select2_col.markdown('**Search by clicking on the map**')
     #get correct format for coordinates longlat
-    coord = select2_col.text_input('The coordinates of the property', '48.8566,2.3522')
+    coord = select2_col.text_input('The coordinates of the property', f'{str(coords[0])},{str(coords[1])}')
     lat_pred, long_pred = coord.split(',')
     lat_pred = float(lat_pred)
     long_pred = float(long_pred)
     find_coord = geolocator.reverse(coord)
-    select2_col.text('The full address is: ')
-    select2_col.write(find_coord.address)
+    # select2_col.text('The full address is: ')
+    # select2_col.write(find_coord.address)
+    address = location_area.address
+    coords = (location_area.latitude, location_area.longitude)    
 
     #map on the bottom. not yet found a way to retreive the longlat when clicking on the map. will need to clik on the map > copy paste the longlat above
     #define the map center and zoom level
@@ -141,6 +147,15 @@ with dashboard:
         zoom_level = 15
     else:
         st.warning("Invalid address")
+
+    if address:
+        st.text('The full address is: ')
+        st.write(address)
+
+        col, _ = st.columns(2)
+        col.write(coords)
+
+        coord = f'{str(coords[0])},{str(coords[1])}'
     
 
     #create the map object
